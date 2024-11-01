@@ -1,0 +1,1921 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dynamic Staff Schedule</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <link
+      href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/intro.js/5.1.0/introjs.min.css"
+    />
+    <style>
+      body {
+        background-color: #f8f9fa;
+      }
+      .container-fluid {
+        background-color: #ffffff;
+        border-radius: 10px;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+      }
+      .weekend {
+        background-color: #fff0f5;
+      }
+      .supervisor {
+        font-weight: bold;
+        color: #dc3545;
+      }
+      .on-leave {
+        background-color: #e6f3ff;
+      }
+      .stayover {
+        background-color: #fff5e6;
+      }
+      .progress {
+        transition: width 0.3s;
+        background-color: #e9ecef;
+      }
+      .progress-bar {
+        background-color: #007bff;
+      }
+      .progress-bar.full {
+        background-color: #28a745;
+      }
+      .shift-count {
+        width: 50px;
+      }
+      .table {
+        background-color: #ffffff;
+      }
+      .table-striped tbody tr:nth-of-type(odd) {
+        background-color: rgba(0, 0, 0, 0.02);
+      }
+      .week-header {
+        background-color: #ffc0cb;
+        font-weight: bold;
+      }
+      #searchPreview {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: white;
+        padding: 20px;
+        border: 1px solid #ccc;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        z-index: 1000;
+        display: none;
+        max-height: 80vh;
+        overflow-y: auto;
+      }
+      .highlight {
+        background-color: #00ff00;
+      }
+      .staff-profile-modal .modal-dialog {
+        max-width: 800px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container-fluid mt-4 p-4">
+      <h1>Dynamic Staff Schedule</h1>
+      <button id="startTourBtn" class="btn btn-info me-2">Start Tour</button>
+      <div class="row mb-3">
+        <div class="col-md-3">
+          <label for="startDate" class="form-label">Start Date:</label>
+          <input type="date" id="startDate" class="form-control" />
+        </div>
+        <div class="col-md-3">
+          <label for="cycleLength" class="form-label">Cycle Length:</label>
+          <select id="cycleLength" class="form-select">
+            <option value="4">4 Weeks</option>
+            <option value="5">5 Weeks</option>
+          </select>
+        </div>
+        <div class="col-md-3">
+          <button id="generateSchedule" class="btn btn-primary mt-4">
+            Generate Schedule
+          </button>
+        </div>
+        <div class="col-md-3">
+          <button id="searchBtn" class="btn btn-secondary mt-4">
+            Search (F4)
+          </button>
+        </div>
+      </div>
+      <div class="row mb-3">
+        <div class="col-md-4">
+          <label for="leaveStaffSelect" class="form-label"
+            >Staff on Leave:</label
+          >
+          <select id="leaveStaffSelect" multiple class="form-select"></select>
+          <input
+            type="text"
+            id="leaveDatePicker"
+            placeholder="Select leave dates"
+            class="form-control mt-2"
+          />
+          <button id="addLeaveBtn" class="btn btn-secondary mt-2">
+            Add Leave
+          </button>
+        </div>
+        <div class="col-md-4">
+          <label for="stayoverStaffSelect" class="form-label"
+            >Stayover Staff:</label
+          >
+          <select
+            id="stayoverStaffSelect"
+            multiple
+            class="form-select"
+          ></select>
+          <input
+            type="number"
+            id="stayoverCount"
+            placeholder="Number of stayovers"
+            min="1"
+            class="form-control mt-2"
+          />
+          <button id="addStayoverBtn" class="btn btn-secondary mt-2">
+            Add Stayover
+          </button>
+        </div>
+        <div class="col-md-4">
+          <label for="offDatePicker" class="form-label"
+            >Select Date for Time Off:</label
+          >
+          <input
+            type="text"
+            id="offDatePicker"
+            placeholder="Select date"
+            class="form-control"
+          />
+          <label for="offStaffSelect" class="form-label mt-2"
+            >Staff Off on Selected Date:</label
+          >
+          <select id="offStaffSelect" multiple class="form-select"></select>
+          <button id="addOffDateBtn" class="btn btn-secondary mt-2">
+            Add Time Off
+          </button>
+        </div>
+      </div>
+      <div class="row mb-3">
+        <div class="col-md-4">
+          <label for="weekendOffStaffSelect" class="form-label"
+            >Give Weekend Off:</label
+          >
+          <select id="weekendOffStaffSelect" class="form-select"></select>
+          <button id="giveWeekendOffBtn" class="btn btn-secondary mt-2">
+            Give Weekend Off
+          </button>
+        </div>
+      </div>
+      <div class="form-check mb-3">
+        <input class="form-check-input" type="checkbox" id="lockToggle" />
+        <label class="form-check-label" for="lockToggle"
+          >Enable Strict Mode</label
+        >
+      </div>
+      <button id="randomizeBtn" class="btn btn-success me-2">
+        Randomize Staff
+      </button>
+      <button id="fixErrorsBtn" class="btn btn-warning me-2">Fix Errors</button>
+      <button id="printScheduleBtn" class="btn btn-info me-2">
+        Print Schedule
+      </button>
+      <button id="exportCsvBtn" class="btn btn-secondary me-2">
+        Export CSV
+      </button>
+      <button id="importCsvBtn" class="btn btn-secondary me-2">
+        Import CSV
+      </button>
+      <input
+        type="file"
+        id="csvFileInput"
+        accept=".csv"
+        style="display: none"
+      />
+      <button id="captureScheduleBtn" class="btn btn-primary me-2">
+        Capture Schedule
+      </button>
+      <button id="captureTableBtn" class="btn btn-primary me-2">
+        Capture Table
+      </button>
+      <button id="addStaffBtn" class="btn btn-success me-2">
+        Add New Staff
+      </button>
+      <div id="schedule" class="mt-4 table-responsive"></div>
+      <div id="scheduleStats" class="mt-4"></div>
+    </div>
+
+    <div id="searchPreview" style="display: none">
+      <h3>Full Month Schedule Preview</h3>
+      <input
+        type="text"
+        id="searchInput"
+        placeholder="Search staff name"
+        class="form-control mb-2"
+      />
+      <div id="previewContent"></div>
+    </div>
+
+    <!-- Add New Staff Modal -->
+    <div
+      class="modal fade"
+      id="addStaffModal"
+      tabindex="-1"
+      aria-labelledby="addStaffModalLabel"
+      aria-hidden="true"
+    >
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="addStaffModalLabel">Add New Staff</h5>
+            <button
+              type="button"
+              class="btn-close"
+              data-bs-dismiss="modal"
+              aria-label="Close"
+            ></button>
+          </div>
+          <div class="modal-body">
+            <form id="addStaffForm">
+              <div class="mb-3">
+                <label for="newStaffName" class="form-label">Name</label>
+                <input
+                  type="text"
+                  class="form-control"
+                  id="newStaffName"
+                  required
+                />
+              </div>
+              <div class="mb-3">
+                <label for="newStaffGender" class="form-label">Gender</label>
+                <select class="form-select" id="newStaffGender" required>
+                  <option value="M">Male</option>
+                  <option value="F">Female</option>
+                </select>
+              </div>
+              <div class="mb-3">
+                <label for="newStaffRole" class="form-label">Role</label>
+                <select class="form-select" id="newStaffRole" required>
+                  <option value="n">Normal</option>
+                  <option value="s">Supervisor</option>
+                </select>
+              </div>
+              <div class="mb-3">
+                <label for="newStaffPreferences" class="form-label"
+                  >Preferences</label
+                >
+                <textarea
+                  class="form-control"
+                  id="newStaffPreferences"
+                  rows="3"
+                ></textarea>
+              </div>
+            </form>
+          </div>
+          <div class="modal-footer">
+            <button
+              type="button"
+              class="btn btn-secondary"
+              data-bs-dismiss="modal"
+            >
+              Close
+            </button>
+            <button type="button" class="btn btn-primary" id="saveNewStaff">
+              Save
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Staff Profile Modal -->
+    <div
+      class="modal fade staff-profile-modal"
+      id="staffProfileModal"
+      tabindex="-1"
+      aria-labelledby="staffProfileModalLabel"
+      aria-hidden="true"
+    >
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="staffProfileModalLabel">
+              Staff Profile
+            </h5>
+            <button
+              type="button"
+              class="btn-close"
+              data-bs-dismiss="modal"
+              aria-label="Close"
+            ></button>
+          </div>
+          <div class="modal-body">
+            <div id="staffProfileContent"></div>
+          </div>
+          <div class="modal-footer">
+            <button
+              type="button"
+              class="btn btn-secondary"
+              data-bs-dismiss="modal"
+            >
+              Close
+            </button>
+            <button type="button" class="btn btn-danger" id="removeStaffBtn">
+              Remove Staff
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/intro.js/5.1.0/intro.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.7.0/chart.min.js"></script>
+    <script>
+      $(document).ready(function () {
+        let staffData = `Abiodun,F,n;Adams,M,s;Adeleke,M,n;Adelodun,M,n,likes more nights, afternoon next day morning;Adenike,F,s;Alimat,F,n;Basirat,F,n;Bolaji,M,s;Celestina,F,n,no nights;Dara,F,s;David,M,s;Esther,F,n;Etim,M,n,try to avoid Sunday mornings;Gabriel,M,s,soon leaving, dont suggest;Gideon,M,n;Godwin,M,s;James,M,n,likes more nights, afternoon next day morning;Jerry,M,n,likes more nights, afternoon next day morning;Joshua,M,n,afternoons more, no nights;Kamilah,F,s;Kemi,F,n;Marho,F,n,likes more nights, afternoon next day morning, no Sunday mornings;Marvellous,F,n;Michael,M,n,likes nights, afternoons, it changes;Miracle,F,n,likes nights;Olayemi,F,s,no nights, mostly workdays;Opeyemi,M,s;Osato,F,n,mornings, not too much nights;Samuel,M,n;Solomon,M,s,soon leaving, dont suggest;Sophia,F,s;Stephen A.,M,s;Stephen E.,M,s;Tobi,F,s;Tosin,M,n;Wisdom,M,s;Yetunde,F,s,no nights, mostly afternoons;Zainab,F,n,no nights`;
+
+        let staff = staffData.split(";").map((s) => {
+          const [name, gender, role, ...preferences] = s.split(",");
+          return {
+            name,
+            gender,
+            role,
+            preferences: preferences.join(","),
+            workDays: 0,
+            nightShifts: 0,
+            weekendsOff: [],
+            morningShifts: 0,
+            afternoonShifts: 0,
+            leaveDays: [],
+            stayoverDays: [],
+            offDays: [],
+          };
+        });
+
+        let scheduleRange = {
+          startDate: null,
+          endDate: null,
+          totalDays: 0,
+          weekends: [],
+          morningWeekday: 15,
+          afternoonWeekday: 14,
+          nightWeekday: 8,
+          morning: 5,
+          afternoon: 5,
+          night: 5,
+        };
+
+        let schedule = [];
+        let isLocked = false;
+
+        function initializeSchedule() {
+          const startDate = new Date(
+            document.getElementById("startDate").value
+          );
+          const cycleLength = parseInt(
+            document.getElementById("cycleLength").value
+          );
+
+          scheduleRange.startDate = startDate;
+          scheduleRange.endDate = new Date(
+            startDate.getTime() + (cycleLength * 7 - 1) * 24 * 60 * 60 * 1000
+          );
+          scheduleRange.totalDays = cycleLength * 7;
+          scheduleRange.weekends = [];
+
+          for (let i = 0; i < scheduleRange.totalDays; i++) {
+            const currentDate = new Date(
+              startDate.getTime() + i * 24 * 60 * 60 * 1000
+            );
+            if (currentDate.getDay() === 0 || currentDate.getDay() === 6) {
+              scheduleRange.weekends.push(i);
+            }
+          }
+
+          schedule = Array(scheduleRange.totalDays)
+            .fill()
+            .map(() => ({ morning: [], afternoon: [], night: [] }));
+          displaySchedule();
+        }
+
+        function getMaxStaff(day, shift) {
+          return scheduleRange.weekends.includes(day)
+            ? scheduleRange[shift]
+            : scheduleRange[`${shift}Weekday`];
+        }
+
+        function toggleStaffForShift(day, shift, staffName) {
+          const staffMember = staff.find((s) => s.name === staffName);
+          if (!staffMember) {
+            console.error(`Staff member ${staffName} not found`);
+            return;
+          }
+
+          // Check if staff is already assigned to any shift on this day
+          const currentShift = ["morning", "afternoon", "night"].find((s) =>
+            schedule[day][s].includes(staffName)
+          );
+
+          if (currentShift) {
+            // Remove from current shift
+            schedule[day][currentShift] = schedule[day][currentShift].filter(
+              (name) => name !== staffName
+            );
+          }
+
+          // If toggling to a new shift (not just removing)
+          if (shift !== currentShift) {
+            if (canAssignStaff(staffName, day, shift)) {
+              if (schedule[day][shift].length < getMaxStaff(day, shift)) {
+                schedule[day][shift].push(staffName);
+              } else {
+                alert(
+                  `Maximum staff limit reached for ${shift} shift. Cannot add ${staffName}.`
+                );
+                return;
+              }
+            } else {
+              alert(
+                `Cannot assign ${staffName} to ${shift} shift due to constraints.`
+              );
+              return;
+            }
+          }
+
+          updateAllShiftsForDay(day);
+          updateStats();
+        }
+
+        function updateAllShiftsForDay(day) {
+          ["morning", "afternoon", "night"].forEach((shift) => {
+            updateSelectedStaff(day, shift);
+            updateProgressBar(day, shift);
+          });
+          updateStaffAvailability(day);
+          updateSupervisorAvailability(day);
+        }
+
+        function displaySchedule() {
+          const scheduleDiv = document.getElementById("schedule");
+          let html =
+            '<table class="table table-bordered"><tr><th>Date</th><th>7AM to 2PM</th><th>12PM to 7PM</th><th>7PM TO 7AM</th></tr>';
+
+          for (let week = 0; week < scheduleRange.totalDays / 7; week++) {
+            html += `<tr class="table-secondary"><td colspan="4">Week ${
+              week + 1
+            }</td></tr>`;
+            for (
+              let day = week * 7;
+              day < (week + 1) * 7 && day < scheduleRange.totalDays;
+              day++
+            ) {
+              const currentDate = new Date(scheduleRange.startDate);
+              currentDate.setDate(scheduleRange.startDate.getDate() + day);
+              const isWeekend = scheduleRange.weekends.includes(day);
+              html += `<tr class="${isWeekend ? "weekend" : ""}">`;
+              html += `<td>${currentDate.toLocaleDateString("en-US", {
+                month: "short",
+                day: "numeric",
+                weekday: "short",
+              })}</td>`;
+              ["morning", "afternoon", "night"].forEach((shift) => {
+                const isNight = shift === "night";
+                html += `<td>
+                            <input type="number" class="form-control form-control-sm shift-count" id="count-${day}-${shift}" value="${getMaxStaff(
+                  day,
+                  shift
+                )}" min="0" max="${getMaxStaff(day, shift)}">
+                            <span class="badge bg-primary" id="current-${day}-${shift}">0</span>/${getMaxStaff(
+                  day,
+                  shift
+                )}
+                            <select class="form-select form-select-sm supervisor-select" data-day="${day}" data-shift="${shift}">
+                                <option value="">Select Supervisor</option>
+                                ${staff
+                                  .filter(
+                                    (s) =>
+                                      s.role === "s" &&
+                                      (isNight
+                                        ? s.name !== "Olayemi" &&
+                                          s.name !== "Yetunde"
+                                        : true)
+                                  )
+                                  .map(
+                                    (s) =>
+                                      `<option value="${s.name}">${s.name}</option>`
+                                  )
+                                  .join("")}
+                            </select>
+                            <select class="form-select form-select-sm staff-toggle" data-day="${day}" data-shift="${shift}">
+                                <option value="">Toggle Staff</option>
+                                ${staff
+                                  .map(
+                                    (s) =>
+                                      `<option value="${s.name}">${s.name}</option>`
+                                  )
+                                  .join("")}
+                            </select>
+                            <div class="progress mt-2">
+                                <div class="progress-bar" id="progress-${day}-${shift}" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+                            </div>
+                            <div class="selected-staff mt-2" id="selected-${day}-${shift}"></div>
+                        </td>`;
+              });
+              html += "</tr>";
+            }
+          }
+
+          html += "</table>";
+          scheduleDiv.innerHTML = html;
+
+          $(".staff-toggle").on("change", function () {
+            const day = $(this).data("day");
+            const shift = $(this).data("shift");
+            const staffName = $(this).val();
+            if (staffName) {
+              toggleStaffForShift(day, shift, staffName);
+            }
+            $(this).val(""); // Reset dropdown
+          });
+
+          $(".supervisor-select").on("change", function () {
+            const day = $(this).data("day");
+            const shift = $(this).data("shift");
+            const supervisorName = $(this).val();
+            if (supervisorName) {
+              setSupervisor(day, shift, supervisorName);
+            }
+            updateSupervisorAvailability(day);
+          });
+
+          $(".shift-count").on("change", function () {
+            const [_, day, shift] = this.id.split("-");
+            updateMaxStaff(parseInt(day), shift, parseInt(this.value));
+          });
+
+          updateAllShifts();
+        }
+
+        function setSupervisor(day, shift, supervisorName) {
+          if (!schedule[day] || !schedule[day][shift]) return;
+
+          schedule[day][shift] = schedule[day][shift].filter(
+            (name) => name !== supervisorName
+          );
+          schedule[day][shift].unshift(supervisorName);
+
+          const maxStaff = getMaxStaff(day, shift);
+          if (schedule[day][shift].length > maxStaff) {
+            schedule[day][shift] = schedule[day][shift].slice(0, maxStaff);
+          }
+
+          updateSelectedStaff(day, shift);
+          updateSupervisorAvailability(day);
+          updateStats();
+        }
+
+        function updateSelectedStaff(day, shift) {
+          const selectedStaffDiv = document.getElementById(
+            `selected-${day}-${shift}`
+          );
+          const selectedStaff = schedule[day][shift];
+          if (selectedStaff.length > 0) {
+            selectedStaffDiv.innerHTML = selectedStaff
+              .map((name, index) => {
+                const staffMember = staff.find((s) => s.name === name);
+                if (!staffMember) return "";
+                const isOnLeave =
+                  staffMember.leaveDays && staffMember.leaveDays.includes(day);
+                const isStayover =
+                  staffMember.stayoverDays &&
+                  staffMember.stayoverDays.includes(day);
+                const isOff =
+                  staffMember.offDays && staffMember.offDays.includes(day);
+                let className = "";
+                if (isOnLeave) className = "on-leave";
+                else if (isStayover) className = "stayover";
+                else if (isOff) className = "text-danger";
+                else if (index === 0) className = "supervisor";
+                return `<span class="${className}" onclick="showStaffProfile('${name}')">${name}</span>`;
+              })
+              .join(", ");
+          } else {
+            selectedStaffDiv.textContent = "";
+          }
+          updateCurrentCount(day, shift);
+        }
+
+        function updateCurrentCount(day, shift) {
+          const currentCountSpan = document.getElementById(
+            `current-${day}-${shift}`
+          );
+          currentCountSpan.textContent = schedule[day][shift].length;
+        }
+
+        function updateProgressBar(day, shift) {
+          const progressBar = document.getElementById(
+            `progress-${day}-${shift}`
+          );
+          const maxStaff = getMaxStaff(day, shift);
+          const percentage = (schedule[day][shift].length / maxStaff) * 100;
+          progressBar.style.width = `${percentage}%`;
+          progressBar.setAttribute("aria-valuenow", percentage);
+          progressBar.classList.toggle("full", percentage === 100);
+        }
+
+        function updateStats() {
+          staff.forEach((s) => {
+            s.workDays = 0;
+            s.nightShifts = 0;
+            s.weekendsOff = [];
+            s.morningShifts = 0;
+            s.afternoonShifts = 0;
+          });
+
+          schedule.forEach((day, index) => {
+            ["morning", "afternoon", "night"].forEach((shift) => {
+              day[shift].forEach((name) => {
+                const staffMember = staff.find((s) => s.name === name);
+                if (
+                  staffMember &&
+                  !(
+                    staffMember.leaveDays &&
+                    staffMember.leaveDays.includes(index)
+                  ) &&
+                  !(staffMember.offDays && staffMember.offDays.includes(index))
+                ) {
+                  staffMember.workDays++;
+                  if (shift === "night") staffMember.nightShifts++;
+                  if (shift === "morning") staffMember.morningShifts++;
+                  if (shift === "afternoon") staffMember.afternoonShifts++;
+                }
+              });
+            });
+
+            if (scheduleRange.weekends.includes(index) && index % 2 === 0) {
+              const weekendOff = staff.filter(
+                (s) =>
+                  !day.morning.includes(s.name) &&
+                  !day.afternoon.includes(s.name) &&
+                  !day.night.includes(s.name) &&
+                  !schedule[index + 1].morning.includes(s.name) &&
+                  !schedule[index + 1].afternoon.includes(s.name) &&
+                  !schedule[index + 1].night.includes(s.name)
+              );
+              weekendOff.forEach((s) =>
+                s.weekendsOff.push(Math.floor(index / 7) + 1)
+              );
+            }
+          });
+
+          displayStats();
+        }
+
+        function displayStats() {
+          const statsDiv = document.getElementById("scheduleStats");
+          let statsHtml = "<h2>Schedule Statistics</h2>";
+          statsHtml +=
+            '<table class="table table-striped"><tr><th>Name</th><th>Work Days</th><th>Night Shifts</th><th>Morning Shifts</th><th>Afternoon Shifts</th><th>Weekends Off</th><th>Leave Days</th><th>Stayover Days</th><th>Off Days</th><th>Alerts</th><th>Actions</th></tr>';
+          staff.forEach((s) => {
+            let alerts = [];
+            const maxWorkDays = scheduleRange.totalDays / 7 === 4 ? 20 : 25;
+            const requiredWeekendsOff =
+              scheduleRange.totalDays / 7 === 4 ? 1 : 2;
+            if (s.workDays > maxWorkDays)
+              alerts.push(`Exceeds ${maxWorkDays} working days`);
+            if (s.role === "s" && s.nightShifts > 5)
+              alerts.push("Exceeds 5 night shifts for supervisor");
+            if (s.role === "n" && s.nightShifts > 8)
+              alerts.push("Exceeds 8 night shifts for normal staff");
+            if (s.weekendsOff.length < requiredWeekendsOff)
+              alerts.push(`Less than ${requiredWeekendsOff} weekends off`);
+
+            statsHtml += `<tr>
+                    <td><a href="#" onclick="showStaffProfile('${s.name}')">${
+              s.name
+            }</a></td>
+                    <td>${s.workDays}</td>
+                    <td>${s.nightShifts}</td>
+                    <td>${s.morningShifts}</td>
+                    <td>${s.afternoonShifts}</td>
+                    <td>${s.weekendsOff.map((w) => `W${w}`).join(", ")}</td>
+                    <td>${s.leaveDays ? s.leaveDays.length : 0}</td>
+                    <td>${s.stayoverDays ? s.stayoverDays.length : 0}</td>
+                    <td>${s.offDays ? s.offDays.length : 0}</td>
+                    <td class="alert">${alerts.join(", ")}</td>
+                    <td><button class="btn btn-sm btn-danger reset-staff-btn" data-staff="${
+                      s.name
+                    }">Reset</button></td>
+                </tr>`;
+          });
+          statsHtml += "</table>";
+          statsDiv.innerHTML = statsHtml;
+          updateResetButtons();
+        }
+
+        function checkWeekLock() {
+          if (!isLocked) return;
+          const lockToggle = document.getElementById("lockToggle");
+          if (!lockToggle.checked) return;
+
+          for (let week = 0; week < scheduleRange.totalDays / 7; week++) {
+            const startDay = week * 7;
+            const endDay = Math.min((week + 1) * 7, scheduleRange.totalDays);
+            let isWeekComplete = true;
+            let totalStaffAssigned = new Set();
+
+            for (let day = startDay; day < endDay; day++) {
+              ["morning", "afternoon", "night"].forEach((shift) => {
+                schedule[day][shift].forEach((name) =>
+                  totalStaffAssigned.add(name)
+                );
+              });
+            }
+
+            if (totalStaffAssigned.size < 38) {
+              isWeekComplete = false;
+            }
+
+            if (!isWeekComplete) {
+              for (let day = endDay; day < scheduleRange.totalDays; day++) {
+                ["morning", "afternoon", "night"].forEach((shift) => {
+                  $(`#dropdown-${day}-${shift}`)
+                    .find("select")
+                    .prop("disabled", true);
+                });
+              }
+              break;
+            }
+          }
+        }
+
+        function randomizeStaff() {
+          schedule = Array(scheduleRange.totalDays)
+            .fill()
+            .map(() => ({ morning: [], afternoon: [], night: [] }));
+
+          for (let day = 0; day < scheduleRange.totalDays; day++) {
+            const isWeekend = scheduleRange.weekends.includes(day);
+            ["morning", "afternoon", "night"].forEach((shift) => {
+              const maxStaff = getMaxStaff(day, shift);
+              const availableStaff = staff.filter((s) =>
+                canAssignStaff(s.name, day, shift)
+              );
+              const shuffledStaff = availableStaff.sort(
+                () => 0.5 - Math.random()
+              );
+              schedule[day][shift] = shuffledStaff
+                .slice(0, maxStaff)
+                .map((s) => s.name);
+
+              if (!isWeekend && shift !== "night") {
+                if (shift === "morning" && Math.random() < 0.6) {
+                  ensureSupervisor(day, shift, "Olayemi");
+                } else if (shift === "afternoon" && Math.random() < 0.6) {
+                  ensureSupervisor(day, shift, "Yetunde");
+                } else {
+                  ensureAnySupervisor(day, shift);
+                }
+              } else {
+                ensureAnySupervisor(day, shift);
+              }
+            });
+          }
+          updateStats();
+          displaySchedule();
+        }
+
+        function ensureSupervisor(day, shift, supervisorName) {
+          const index = schedule[day][shift].findIndex(
+            (name) => name === supervisorName
+          );
+          if (index === -1) {
+            schedule[day][shift].pop();
+            schedule[day][shift].unshift(supervisorName);
+          } else if (index !== 0) {
+            schedule[day][shift].splice(index, 1);
+            schedule[day][shift].unshift(supervisorName);
+          }
+        }
+
+        function ensureAnySupervisor(day, shift) {
+          const supervisors = staff.filter(
+            (s) =>
+              s.role === "s" &&
+              (shift !== "night" ||
+                (s.name !== "Olayemi" && s.name !== "Yetunde"))
+          );
+          const currentSupervisor = schedule[day][shift].find((name) =>
+            supervisors.some((s) => s.name === name)
+          );
+          if (!currentSupervisor) {
+            const randomSupervisor =
+              supervisors[Math.floor(Math.random() * supervisors.length)];
+            schedule[day][shift].pop();
+            schedule[day][shift].unshift(randomSupervisor.name);
+          } else if (schedule[day][shift].indexOf(currentSupervisor) !== 0) {
+            schedule[day][shift] = schedule[day][shift].filter(
+              (name) => name !== currentSupervisor
+            );
+            schedule[day][shift].unshift(currentSupervisor);
+          }
+        }
+
+        function canAssignStaff(staffName, day, shift) {
+          const staffMember = staff.find((s) => s.name === staffName);
+          if (!staffMember) return false;
+
+          if (staffMember.leaveDays && staffMember.leaveDays.includes(day))
+            return false;
+          if (staffMember.offDays && staffMember.offDays.includes(day))
+            return false;
+
+          if (shift === "night") {
+            if (
+              staffMember.name === "Olayemi" ||
+              staffMember.name === "Yetunde"
+            )
+              return false;
+            const maxNightShifts = staffMember.role === "s" ? 5 : 8;
+            if (staffMember.nightShifts >= maxNightShifts) return false;
+          }
+
+          if (day > 0) {
+            const prevDay = schedule[day - 1];
+            if (
+              prevDay.night.includes(staffName) &&
+              (shift === "morning" || shift === "afternoon")
+            )
+              return false;
+          }
+
+          if (
+            staffMember.stayoverDays &&
+            staffMember.stayoverDays.includes(day) &&
+            shift === "afternoon"
+          ) {
+            if (
+              day < scheduleRange.totalDays - 1 &&
+              !schedule[day + 1].morning.includes(staffName)
+            ) {
+              schedule[day + 1].morning.push(staffName);
+            }
+            return true;
+          }
+          if (
+            staffMember.stayoverDays &&
+            staffMember.stayoverDays.includes(day - 1) &&
+            shift === "morning"
+          )
+            return true;
+
+          if (staffMember.preferences) {
+            const prefs = staffMember.preferences.toLowerCase();
+            if (prefs.includes("no nights") && shift === "night") return false;
+            if (
+              prefs.includes("no sunday mornings") &&
+              new Date(
+                scheduleRange.startDate.getTime() + day * 24 * 60 * 60 * 1000
+              ).getDay() === 0 &&
+              shift === "morning"
+            )
+              return false;
+          }
+
+          return true;
+        }
+
+        function fixErrors() {
+          staff.forEach((staffMember) => {
+            const maxWorkDays = scheduleRange.totalDays / 7 === 4 ? 20 : 25;
+            while (staffMember.workDays < maxWorkDays) {
+              let assigned = false;
+              for (
+                let day = 0;
+                day < scheduleRange.totalDays && !assigned;
+                day++
+              ) {
+                ["morning", "afternoon", "night"].forEach((shift) => {
+                  if (
+                    !assigned &&
+                    canAssignStaff(staffMember.name, day, shift) &&
+                    schedule[day][shift].length < getMaxStaff(day, shift)
+                  ) {
+                    schedule[day][shift].push(staffMember.name);
+                    staffMember.workDays++;
+                    assigned = true;
+                  }
+                });
+              }
+              if (!assigned) break;
+            }
+          });
+
+          updateStats();
+          displaySchedule();
+        }
+
+        function resetStaff(staffName) {
+          const staffMember = staff.find((s) => s.name === staffName);
+          if (!staffMember) {
+            console.error(`Staff member ${staffName} not found`);
+            return;
+          }
+
+          const manualAssignments = [];
+
+          for (let day = 0; day < scheduleRange.totalDays; day++) {
+            ["morning", "afternoon", "night"].forEach((shift) => {
+              if (schedule[day] && Array.isArray(schedule[day][shift])) {
+                const index = schedule[day][shift].indexOf(staffName);
+                if (index !== -1) {
+                  if (index === 0 && staffMember.role === "s") {
+                    manualAssignments.push({ day, shift });
+                  } else {
+                    schedule[day][shift].splice(index, 1);
+                  }
+                }
+              }
+            });
+          }
+
+          staffMember.workDays =
+            staffMember.nightShifts =
+            staffMember.morningShifts =
+            staffMember.afternoonShifts =
+              0;
+          staffMember.weekendsOff = [];
+
+          const maxWorkDays = scheduleRange.totalDays / 7 === 4 ? 20 : 25;
+          let attempts = 0;
+          const maxAttempts = scheduleRange.totalDays * 3;
+
+          while (staffMember.workDays < maxWorkDays && attempts < maxAttempts) {
+            const day = Math.floor(Math.random() * scheduleRange.totalDays);
+            const shift = ["morning", "afternoon", "night"][
+              Math.floor(Math.random() * 3)
+            ];
+
+            if (
+              canAssignStaff(staffName, day, shift) &&
+              schedule[day][shift].length < getMaxStaff(day, shift)
+            ) {
+              schedule[day][shift].push(staffName);
+              staffMember.workDays++;
+              staffMember[shift + "Shifts"]++;
+            }
+            attempts++;
+          }
+
+          manualAssignments.forEach(({ day, shift }) => {
+            if (!schedule[day][shift].includes(staffName)) {
+              schedule[day][shift].unshift(staffName);
+              staffMember.workDays++;
+              staffMember[shift + "Shifts"]++;
+            }
+          });
+
+          updateStats();
+          displaySchedule();
+        }
+
+        function optimizedResetStaff(staffName) {
+          return new Promise((resolve) => {
+            setTimeout(() => {
+              resetStaff(staffName);
+              resolve();
+            }, 0);
+          });
+        }
+
+        function updateResetButtons() {
+          $(".reset-staff-btn")
+            .off("click")
+            .on("click", async function () {
+              const staffName = $(this).data("staff");
+              $(this).prop("disabled", true).text("Resetting...");
+              await optimizedResetStaff(staffName);
+              $(this).prop("disabled", false).text("Reset");
+            });
+        }
+
+        function updateMaxStaff(day, shift, newMax) {
+          const isWeekend = scheduleRange.weekends.includes(day);
+          if (isWeekend) {
+            scheduleRange[shift] = newMax;
+          } else {
+            scheduleRange[`${shift}Weekday`] = newMax;
+          }
+          updateProgressBar(day, shift);
+        }
+
+        function updateAllShifts() {
+          for (let day = 0; day < scheduleRange.totalDays; day++) {
+            ["morning", "afternoon", "night"].forEach((shift) => {
+              updateProgressBar(day, shift);
+              updateSelectedStaff(day, shift);
+            });
+            updateStaffAvailability(day);
+            updateSupervisorAvailability(day);
+          }
+        }
+
+        function updateStaffAvailability(day) {
+          const assignedStaff = new Set([
+            ...schedule[day].morning,
+            ...schedule[day].afternoon,
+            ...schedule[day].night,
+          ]);
+          const prevDayNightStaff =
+            day > 0 ? new Set(schedule[day - 1].night) : new Set();
+
+          ["morning", "afternoon", "night"].forEach((shift) => {
+            const select = $(
+              `.staff-toggle[data-day="${day}"][data-shift="${shift}"]`
+            );
+            select.find("option").each(function () {
+              const staffName = $(this).val();
+              const staffMember = staff.find((s) => s.name === staffName);
+              if (staffMember) {
+                const isOnLeave =
+                  staffMember.leaveDays && staffMember.leaveDays.includes(day);
+                const isOff =
+                  staffMember.offDays && staffMember.offDays.includes(day);
+                const isAssignedToThisShift =
+                  schedule[day][shift].includes(staffName);
+                const workedNightBefore = prevDayNightStaff.has(staffName);
+                const canBeAssigned = canAssignStaff(staffName, day, shift);
+                $(this).prop(
+                  "disabled",
+                  isOnLeave ||
+                    isOff ||
+                    (shift !== "night" && workedNightBefore) ||
+                    !canBeAssigned
+                );
+                $(this).prop("selected", isAssignedToThisShift);
+              } else {
+                $(this).prop("disabled", true);
+              }
+            });
+            select.val(schedule[day][shift]);
+          });
+        }
+
+        function updateSupervisorAvailability(day) {
+          const assignedSupervisors = new Set();
+          ["morning", "afternoon", "night"].forEach((shift) => {
+            const supervisorName = schedule[day][shift][0];
+            if (
+              supervisorName &&
+              staff.find((s) => s.name === supervisorName && s.role === "s")
+            ) {
+              assignedSupervisors.add(supervisorName);
+            }
+          });
+
+          ["morning", "afternoon", "night"].forEach((shift) => {
+            const select = $(
+              `.supervisor-select[data-day="${day}"][data-shift="${shift}"]`
+            );
+            select.find("option").each(function () {
+              const supervisorName = $(this).val();
+              $(this).prop("disabled", assignedSupervisors.has(supervisorName));
+            });
+          });
+        }
+
+        function giveWeekendOff(staffName) {
+          const staffMember = staff.find((s) => s.name === staffName);
+          if (!staffMember) return;
+
+          const availableWeekends = Array.from(
+            { length: scheduleRange.totalDays / 7 },
+            (_, i) => i
+          ).filter((week) => !staffMember.weekendsOff.includes(week + 1));
+
+          if (availableWeekends.length > 0) {
+            const randomWeekend =
+              availableWeekends[
+                Math.floor(Math.random() * availableWeekends.length)
+              ];
+            const fridayIndex = randomWeekend * 7 + 4;
+            const sundayIndex = randomWeekend * 7 + 6;
+
+            for (let day = fridayIndex; day <= sundayIndex; day++) {
+              ["morning", "afternoon", "night"].forEach((shift) => {
+                schedule[day][shift] = schedule[day][shift].filter(
+                  (name) => name !== staffName
+                );
+              });
+            }
+
+            staffMember.weekendsOff.push(randomWeekend + 1);
+            alert(
+              `Weekend off given to ${staffName} for Week ${randomWeekend + 1}`
+            );
+            updateStats();
+            displaySchedule();
+          } else {
+            alert(`No available weekends to give off to ${staffName}`);
+          }
+        }
+
+        function printSchedule() {
+          const printWindow = window.open("", "_blank");
+          const startDate = scheduleRange.startDate;
+          const endDate = scheduleRange.endDate;
+          const monthYear = startDate.toLocaleString("default", {
+            month: "long",
+            year: "numeric",
+          });
+
+          let html = `
+                <!DOCTYPE html>
+                <html lang="en">
+                <head>
+                    <meta charset="UTF-8">
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                    <title>${monthYear} Staff Schedule</title>
+                    <style>
+                        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; }
+                        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+                        th, td { border: 1px solid #000; padding: 8px; text-align: left; font-size: 12px; }
+                        th { background-color: #f2f2f2; }
+                        .week-header { background-color: #FFC0CB; font-weight: bold; }
+                        .supervisor { font-weight: bold; color: red; }
+                    </style>
+                </head>
+                <body>
+                    <h1>${monthYear} Staff Schedule</h1>
+                    <table>
+            `;
+
+          for (let week = 0; week < scheduleRange.totalDays / 7; week++) {
+            const weekStart = new Date(
+              startDate.getTime() + week * 7 * 24 * 60 * 60 * 1000
+            );
+            const weekEnd = new Date(
+              weekStart.getTime() + 6 * 24 * 60 * 60 * 1000
+            );
+
+            html += `
+                    <tr class="week-header">
+                        <th colspan="4">${weekStart.toLocaleDateString(
+                          "en-US",
+                          { month: "short", day: "numeric" }
+                        )} / ${weekEnd.toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+            })}</th>
+                    </tr>
+                    <tr>
+                        <th>DAYS</th>
+                        <th>7AM to 2PM</th>
+                        <th>12PM to 7PM</th>
+                        <th>7PM TO 7AM</th>
+                    </tr>
+                `;
+
+            for (
+              let day = week * 7;
+              day < (week + 1) * 7 && day < scheduleRange.totalDays;
+              day++
+            ) {
+              const currentDate = new Date(startDate);
+              currentDate.setDate(startDate.getDate() + day);
+              const dayOfWeek = currentDate.toLocaleDateString("en-US", {
+                weekday: "long",
+              });
+
+              html += `<tr>
+                        <td>${dayOfWeek}</td>
+                    `;
+
+              ["morning", "afternoon", "night"].forEach((shift) => {
+                const shiftStaff = schedule[day][shift];
+                const supervisor = shiftStaff.find((name) =>
+                  staff.find((s) => s.name === name && s.role === "s")
+                );
+                const otherStaff = shiftStaff.filter(
+                  (name) => name !== supervisor
+                );
+
+                html += `<td>${
+                  supervisor
+                    ? `<span class="supervisor">${supervisor}(s)</span>, `
+                    : ""
+                }${otherStaff.join(", ")}</td>`;
+              });
+
+              html += "</tr>";
+            }
+          }
+
+          html += `
+                    </table>
+                </body>
+                </html>
+            `;
+
+          printWindow.document.write(html);
+          printWindow.document.close();
+          printWindow.print();
+        }
+
+        function initializeDatePickers() {
+          flatpickr("#leaveDatePicker, #stayoverDatePicker, #offDatePicker", {
+            mode: "multiple",
+            dateFormat: "Y-m-d",
+            minDate: scheduleRange.startDate,
+            maxDate: scheduleRange.endDate,
+          });
+        }
+
+        $("#leaveStaffSelect, #stayoverStaffSelect, #offStaffSelect").select2({
+          width: "100%",
+          placeholder: "Select staff",
+          closeOnSelect: false,
+        });
+
+        $("#generateSchedule").click(function () {
+          try {
+            initializeSchedule();
+            initializeDatePickers();
+            randomizeStaff();
+          } catch (error) {
+            handleError(error);
+          }
+        });
+
+        $("#addLeaveBtn").click(function () {
+          const staffNames = $("#leaveStaffSelect").val();
+          const leaveDates = $("#leaveDatePicker").val();
+          if (staffNames && leaveDates) {
+            const leaveDaysArray = leaveDates.split(",").map((date) => {
+              const leaveDate = new Date(date);
+              return Math.floor(
+                (leaveDate - scheduleRange.startDate) / (1000 * 60 * 60 * 24)
+              );
+            });
+            staffNames.forEach((staffName) => {
+              const staffMember = staff.find((s) => s.name === staffName);
+              if (staffMember) {
+                staffMember.leaveDays = staffMember.leaveDays || [];
+                staffMember.leaveDays = [
+                  ...new Set([...staffMember.leaveDays, ...leaveDaysArray]),
+                ];
+              }
+            });
+            alert(`Leave added for selected staff`);
+            $("#leaveStaffSelect").val(null).trigger("change");
+            $("#leaveDatePicker").val("");
+            updateAllShifts();
+          } else {
+            alert("Please select staff and leave dates");
+          }
+        });
+
+        $("#addStayoverBtn").click(function () {
+          const staffNames = $("#stayoverStaffSelect").val();
+          const stayoverCount = parseInt($("#stayoverCount").val());
+          if (staffNames && !isNaN(stayoverCount) && stayoverCount > 0) {
+            staffNames.forEach((staffName) => {
+              const staffMember = staff.find((s) => s.name === staffName);
+              if (staffMember) {
+                const availableDays = Array.from(
+                  { length: scheduleRange.totalDays - 1 },
+                  (_, i) => i
+                ).filter(
+                  (day) =>
+                    !(
+                      staffMember.leaveDays &&
+                      staffMember.leaveDays.includes(day)
+                    ) &&
+                    !(staffMember.offDays && staffMember.offDays.includes(day))
+                );
+                const shuffledDays = availableDays.sort(
+                  () => 0.5 - Math.random()
+                );
+                const selectedDays = shuffledDays.slice(
+                  0,
+                  Math.min(stayoverCount, shuffledDays.length)
+                );
+                staffMember.stayoverDays = staffMember.stayoverDays || [];
+                staffMember.stayoverDays = [
+                  ...new Set([...staffMember.stayoverDays, ...selectedDays]),
+                ];
+              }
+            });
+            alert(`Stayover shifts added for selected staff`);
+            $("#stayoverStaffSelect").val(null).trigger("change");
+            $("#stayoverCount").val("");
+            updateAllShifts();
+          } else {
+            alert(
+              "Please select staff and enter a valid number of stayover shifts"
+            );
+          }
+        });
+
+        $("#addOffDateBtn").click(function () {
+          const staffNames = $("#offStaffSelect").val();
+          const offDate = $("#offDatePicker").val();
+          if (staffNames && offDate) {
+            const offDay = Math.floor(
+              (new Date(offDate) - scheduleRange.startDate) /
+                (1000 * 60 * 60 * 24)
+            );
+            staffNames.forEach((staffName) => {
+              const staffMember = staff.find((s) => s.name === staffName);
+              if (staffMember) {
+                staffMember.offDays = staffMember.offDays || [];
+                staffMember.offDays = [
+                  ...new Set([...staffMember.offDays, offDay]),
+                ];
+              }
+            });
+            alert(`Time off added for selected staff on ${offDate}`);
+            $("#offStaffSelect").val(null).trigger("change");
+            $("#offDatePicker").val("");
+            updateAllShifts();
+          } else {
+            alert("Please select staff and an off date");
+          }
+        });
+
+        $("#giveWeekendOffBtn").click(function () {
+          const staffName = $("#weekendOffStaffSelect").val();
+          if (staffName) {
+            giveWeekendOff(staffName);
+          } else {
+            alert("Please select a staff member");
+          }
+        });
+
+        $("#randomizeBtn").click(function () {
+          try {
+            randomizeStaff();
+          } catch (error) {
+            handleError(error);
+          }
+        });
+
+        $("#fixErrorsBtn").click(function () {
+          try {
+            fixErrors();
+          } catch (error) {
+            handleError(error);
+          }
+        });
+
+        $("#printScheduleBtn").click(printSchedule);
+
+        $("#lockToggle").change(function () {
+          isLocked = this.checked;
+          checkWeekLock();
+        });
+
+        function handleError(error) {
+          console.error("An error occurred:", error);
+          alert("An error occurred. Please check the console for details.");
+        }
+
+        // Set initial date and populate staff dropdowns
+        const today = new Date();
+        $("#startDate").val(today.toISOString().split("T")[0]);
+        staff.forEach((s) => {
+          $(
+            "#leaveStaffSelect, #stayoverStaffSelect, #offStaffSelect, #weekendOffStaffSelect"
+          ).append(new Option(s.name, s.name, false, false));
+        });
+
+        // Initialize the schedule
+        try {
+          initializeSchedule();
+          initializeDatePickers();
+        } catch (error) {
+          handleError(error);
+        }
+
+        // Search functionality
+        $("#searchBtn").click(function () {
+          showSearchPreview();
+        });
+
+        $(document).keydown(function (e) {
+          if (e.which === 115) {
+            // F4 key
+            e.preventDefault();
+            showSearchPreview();
+          }
+        });
+
+        function showSearchPreview() {
+          const previewContent = generateFullMonthPreview();
+          $("#previewContent").html(previewContent);
+          $("#searchPreview").show();
+        }
+
+        function generateFullMonthPreview() {
+          let html = '<table class="table table-bordered table-sm">';
+          html +=
+            "<tr><th>Date</th><th>Morning</th><th>Afternoon</th><th>Night</th></tr>";
+
+          for (let day = 0; day < scheduleRange.totalDays; day++) {
+            const currentDate = new Date(scheduleRange.startDate);
+            currentDate.setDate(scheduleRange.startDate.getDate() + day);
+            html += `<tr>
+                    <td>${currentDate.toLocaleDateString("en-US", {
+                      month: "short",
+                      day: "numeric",
+                      weekday: "short",
+                    })}</td>
+                    <td>${schedule[day].morning.join(", ")}</td>
+                    <td>${schedule[day].afternoon.join(", ")}</td>
+                    <td>${schedule[day].night.join(", ")}</td>
+                </tr>`;
+          }
+
+          html += "</table>";
+          return html;
+        }
+
+        // Close preview when clicking outside
+        $(document).mouseup(function (e) {
+          const container = $("#searchPreview");
+          if (!container.is(e.target) && container.has(e.target).length === 0) {
+            container.hide();
+          }
+        });
+
+        // Search functionality
+        $("#searchInput").on("input", function () {
+          const searchTerm = $(this).val().toLowerCase();
+          $("#previewContent table tr").each(function () {
+            const row = $(this);
+            const hasMatch = row.text().toLowerCase().includes(searchTerm);
+            row.toggle(hasMatch);
+            if (hasMatch) {
+              row.find("td").each(function () {
+                const cell = $(this);
+                const cellText = cell.text();
+                if (cellText.toLowerCase().includes(searchTerm)) {
+                  cell.addClass("highlight");
+                } else {
+                  cell.removeClass("highlight");
+                }
+              });
+            }
+          });
+        });
+
+        // Export to CSV
+        $("#exportCsvBtn").click(function () {
+          const csvContent = generateCsvContent();
+          const blob = new Blob([csvContent], {
+            type: "text/csv;charset=utf-8;",
+          });
+          const link = document.createElement("a");
+          if (link.download !== undefined) {
+            const url = URL.createObjectURL(blob);
+            link.setAttribute("href", url);
+            link.setAttribute("download", "staff_schedule.csv");
+            link.style.visibility = "hidden";
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+          }
+        });
+
+        function generateCsvContent() {
+          let csvContent =
+            "SN,STAFF,,,,OCTOBER 7TH TO 13TH OCTOBER,,,,LEAVE SCHEDULE,,,,,,,\n";
+          csvContent +=
+            "1,Olayemi,Staff off this weekend,,.,DAYS,7AM to 2PM,12PM to 7PM,7PM TO 7AM,,,SOC SUMMARY,,,,,\n";
+
+          for (let day = 0; day < scheduleRange.totalDays; day++) {
+            const currentDate = new Date(scheduleRange.startDate);
+            currentDate.setDate(scheduleRange.startDate.getDate() + day);
+            const dateStr = currentDate.toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+              year: "numeric",
+              weekday: "long",
+            });
+            const morning = schedule[day].morning.join(", ");
+            const afternoon = schedule[day].afternoon.join(", ");
+            const night = schedule[day].night.join(", ");
+            csvContent += `${day + 2},,,,${
+              currentDate.toISOString().split("T")[0]
+            },${dateStr},"${morning}","${afternoon}","${night}",,,,,,,\n`;
+          }
+
+          return csvContent;
+        }
+
+        // Import from CSV
+        $("#importCsvBtn").click(function () {
+          $("#csvFileInput").click();
+        });
+
+        $("#csvFileInput").change(function (e) {
+          const file = e.target.files[0];
+          if (file) {
+            const reader = new FileReader();
+            reader.onload = function (e) {
+              const csvData = e.target.result;
+              importCsvData(csvData);
+            };
+            reader.readAsText(file);
+          }
+        });
+
+        function importCsvData(csvData) {
+          const rows = csvData.split("\n");
+          rows.shift(); // Remove header row
+          rows.shift(); // Remove second header row
+          schedule = [];
+          rows.forEach((row, index) => {
+            if (row.trim() !== "") {
+              const columns = row.split(",");
+              if (columns.length >= 9) {
+                const morning = columns[6]
+                  .replace(/"/g, "")
+                  .split(", ")
+                  .filter((name) => name.trim() !== "");
+                const afternoon = columns[7]
+                  .replace(/"/g, "")
+                  .split(", ")
+                  .filter((name) => name.trim() !== "");
+                const night = columns[8]
+                  .replace(/"/g, "")
+                  .split(", ")
+                  .filter((name) => name.trim() !== "");
+                schedule.push({ morning, afternoon, night });
+              }
+            }
+          });
+          updateStats();
+          displaySchedule();
+        }
+
+        // Capture schedule image
+        $("#captureScheduleBtn").click(function () {
+          html2canvas(document.getElementById("schedule")).then((canvas) => {
+            const link = document.createElement("a");
+            link.download = "staff_schedule.png";
+            link.href = canvas.toDataURL();
+            link.click();
+          });
+        });
+
+        // Capture table structure
+        $("#captureTableBtn").click(function () {
+          const tableHtml = generateTableStructure();
+          const blob = new Blob([tableHtml], {
+            type: "text/html;charset=utf-8;",
+          });
+          const link = document.createElement("a");
+          if (link.download !== undefined) {
+            const url = URL.createObjectURL(blob);
+            link.setAttribute("href", url);
+            link.setAttribute("download", "table_structure.html");
+            link.style.visibility = "hidden";
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+          }
+        });
+
+        function generateTableStructure() {
+          let html = `
+                <!DOCTYPE html>
+                <html lang="en">
+                <head>
+                    <meta charset="UTF-8">
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                    <title>Staff Schedule Table Structure</title>
+                    <style>
+                        body { font-family: Arial, sans-serif; }
+                        table { border-collapse: collapse; width: 100%; }
+                        th, td { border: 1px solid black; padding: 8px; text-align: left; }
+                        th { background-color: #f2f2f2; }
+                    </style>
+                </head>
+                <body>
+                    <table>
+                        <tr>
+                            <th>Date</th>
+                            <th>7AM to 2PM</th>
+                            <th>12PM to 7PM</th>
+                            <th>7PM TO 7AM</th>
+                        </tr>
+            `;
+
+          for (let day = 0; day < scheduleRange.totalDays; day++) {
+            const currentDate = new Date(scheduleRange.startDate);
+            currentDate.setDate(scheduleRange.startDate.getDate() + day);
+            html += `
+                    <tr>
+                        <td>${currentDate.toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                          weekday: "short",
+                        })}</td>
+                        <td>${schedule[day].morning.join(", ")}</td>
+                        <td>${schedule[day].afternoon.join(", ")}</td>
+                        <td>${schedule[day].night.join(", ")}</td>
+                    </tr>
+                `;
+          }
+
+          html += `
+                    </table>
+                </body>
+                </html>
+            `;
+
+          return html;
+        }
+
+        // Add new staff
+        $("#addStaffBtn").click(function () {
+          $("#addStaffModal").modal("show");
+        });
+
+        $("#saveNewStaff").click(function () {
+          const name = $("#newStaffName").val();
+          const gender = $("#newStaffGender").val();
+          const role = $("#newStaffRole").val();
+          const preferences = $("#newStaffPreferences").val();
+
+          if (name && gender && role) {
+            const newStaff = {
+              name,
+              gender,
+              role,
+              preferences,
+              workDays: 0,
+              nightShifts: 0,
+              weekendsOff: [],
+              morningShifts: 0,
+              afternoonShifts: 0,
+              leaveDays: [],
+              stayoverDays: [],
+              offDays: [],
+            };
+
+            staff.push(newStaff);
+            $("#addStaffModal").modal("hide");
+            $("#addStaffForm")[0].reset();
+            updateStaffDropdowns();
+            alert(`New staff member ${name} added successfully.`);
+          } else {
+            alert("Please fill in all required fields.");
+          }
+        });
+
+        function updateStaffDropdowns() {
+          const dropdowns = $(
+            "#leaveStaffSelect, #stayoverStaffSelect, #offStaffSelect, #weekendOffStaffSelect"
+          );
+          dropdowns.empty();
+          staff.forEach((s) => {
+            dropdowns.append(new Option(s.name, s.name, false, false));
+          });
+          dropdowns.trigger("change");
+        }
+
+        // Show staff profile
+        window.showStaffProfile = function (staffName) {
+          const staffMember = staff.find((s) => s.name === staffName);
+          if (staffMember) {
+            const profileContent = generateStaffProfile(staffMember);
+            $("#staffProfileContent").html(profileContent);
+            $("#staffProfileModal").modal("show");
+            $("#removeStaffBtn").data("staff", staffName);
+          }
+        };
+
+        function generateStaffProfile(staffMember) {
+          let html = `
+                <h3>${staffMember.name}</h3>
+                <p><strong>Gender:</strong> ${staffMember.gender}</p>
+                <p><strong>Role:</strong> ${
+                  staffMember.role === "s" ? "Supervisor" : "Normal"
+                }</p>
+                <p><strong>Preferences:</strong> ${
+                  staffMember.preferences || "None"
+                }</p>
+                <p><strong>Work Days:</strong> ${staffMember.workDays}</p>
+                <p><strong>Night Shifts:</strong> ${staffMember.nightShifts}</p>
+                <p><strong>Morning Shifts:</strong> ${
+                  staffMember.morningShifts
+                }</p>
+                <p><strong>Afternoon Shifts:</strong> ${
+                  staffMember.afternoonShifts
+                }</p>
+                <p><strong>Weekends Off:</strong> ${
+                  staffMember.weekendsOff.map((w) => `Week ${w}`).join(", ") ||
+                  "None"
+                }</p>
+                <p><strong>Leave Days:</strong> ${
+                  staffMember.leaveDays.length
+                }</p>
+                <p><strong>Stayover Days:</strong> ${
+                  staffMember.stayoverDays.length
+                }</p>
+                <p><strong>Off Days:</strong> ${staffMember.offDays.length}</p>
+            `;
+
+          // Add a chart to visualize shift distribution
+          html += `
+                <canvas id="shiftDistributionChart" width="400" height="200"></canvas>
+            `;
+
+          return html;
+        }
+
+        $("#staffProfileModal").on("shown.bs.modal", function () {
+          const staffName = $("#removeStaffBtn").data("staff");
+          const staffMember = staff.find((s) => s.name === staffName);
+          if (staffMember) {
+            const ctx = document
+              .getElementById("shiftDistributionChart")
+              .getContext("2d");
+            new Chart(ctx, {
+              type: "pie",
+              data: {
+                labels: ["Morning", "Afternoon", "Night"],
+                datasets: [
+                  {
+                    data: [
+                      staffMember.morningShifts,
+                      staffMember.afternoonShifts,
+                      staffMember.nightShifts,
+                    ],
+                    backgroundColor: ["#FF6384", "#36A2EB", "#FFCE56"],
+                  },
+                ],
+              },
+              options: {
+                responsive: true,
+                title: {
+                  display: true,
+                  text: "Shift Distribution",
+                },
+              },
+            });
+          }
+        });
+
+        // Remove staff
+        $("#removeStaffBtn").click(function () {
+          const staffName = $(this).data("staff");
+          if (
+            confirm(
+              `Are you sure you want to remove ${staffName} from the staff list?`
+            )
+          ) {
+            removeStaff(staffName);
+            $("#staffProfileModal").modal("hide");
+          }
+        });
+
+        function removeStaff(staffName) {
+          staff = staff.filter((s) => s.name !== staffName);
+          updateStaffDropdowns();
+          updateScheduleAfterStaffRemoval(staffName);
+          alert(`${staffName} has been removed from the staff list.`);
+        }
+
+        function updateScheduleAfterStaffRemoval(staffName) {
+          for (let day = 0; day < scheduleRange.totalDays; day++) {
+            ["morning", "afternoon", "night"].forEach((shift) => {
+              schedule[day][shift] = schedule[day][shift].filter(
+                (name) => name !== staffName
+              );
+            });
+          }
+          updateStats();
+          displaySchedule();
+        }
+
+        // Intro.js tour
+        const tour = introJs();
+        tour.setOptions({
+          steps: [
+            {
+              element: "#startDate",
+              intro: "Select the start date for your schedule.",
+            },
+            {
+              element: "#cycleLength",
+              intro: "Choose the cycle length for your schedule.",
+            },
+            {
+              element: "#generateSchedule",
+              intro: "Click here to generate a new schedule.",
+            },
+            {
+              element: "#searchBtn",
+              intro: "Use this button or press F4 to search the schedule.",
+            },
+            {
+              element: "#leaveStaffSelect",
+              intro: "Select staff members to add leave days.",
+            },
+            {
+              element: "#stayoverStaffSelect",
+              intro: "Select staff members for stayover shifts.",
+            },
+            {
+              element: "#offDatePicker",
+              intro: "Select dates for time off.",
+            },
+            {
+              element: "#weekendOffStaffSelect",
+              intro: "Give a staff member a weekend off.",
+            },
+            {
+              element: "#lockToggle",
+              intro: "Enable strict mode to lock completed weeks.",
+            },
+            {
+              element: "#randomizeBtn",
+              intro: "Randomize staff assignments.",
+            },
+            {
+              element: "#fixErrorsBtn",
+              intro: "Automatically fix common scheduling errors.",
+            },
+            {
+              element: "#printScheduleBtn",
+              intro: "Print the current schedule.",
+            },
+            {
+              element: "#exportCsvBtn",
+              intro: "Export the schedule to a CSV file.",
+            },
+            {
+              element: "#importCsvBtn",
+              intro: "Import a schedule from a CSV file.",
+            },
+            {
+              element: "#captureScheduleBtn",
+              intro: "Capture the schedule as an image.",
+            },
+            {
+              element: "#captureTableBtn",
+              intro: "Capture the table structure as HTML.",
+            },
+            {
+              element: "#addStaffBtn",
+              intro: "Add a new staff member to the system.",
+            },
+            {
+              element: "#schedule",
+              intro: "This is where your generated schedule will appear.",
+            },
+            {
+              element: "#scheduleStats",
+              intro: "View statistics and alerts for each staff member here.",
+            },
+          ],
+        });
+
+        // Start the tour
+        $("#startTourBtn").click(function () {
+          tour.start();
+        });
+
+        // Initialize the schedule
+        try {
+          initializeSchedule();
+          initializeDatePickers();
+        } catch (error) {
+          handleError(error);
+        }
+      });
+    </script>
+  </body>
+</html>
